@@ -1,14 +1,15 @@
 import numpy as np
-import sklearn as sl
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import cross_val_score
 from tqdm import tqdm
 
 class ga_selector:
     def __init__(self,x,y,feature_name,
                  population_size=100,
                  mutation_rate=0.1,
-                 crossover_rate=0.5,
-                 generations=100,
-                 random_state=42,
+                 crossover_rate=0.8,
+                 generations=50,
+                 random_state=228,
                  elitism_ratio=0.1,
                  min_features=3):
         self.x = x
@@ -37,7 +38,7 @@ class ga_selector:
 
         for _ in range(self.population_size):
             chromosome = np.zeros(self.n_features, dtype=int)
-            n_genes = self.rng.randint(self.min_features, self.n_features + 1)
+            n_genes = self.rng.integers(self.min_features, self.n_features + 1)
             indices = self.rng.choice(self.n_features, size=n_genes, replace=False)
             chromosome[indices] = 1
             population.append(chromosome)
@@ -56,13 +57,13 @@ class ga_selector:
             return 0.0
         x_selected = self.x[:, selected_indices]
 
-        model = sl.ensemble.RandomForestClassifier(
+        model = RandomForestClassifier(
             n_estimators=100, 
             random_state=self.random_state,
             max_depth=5,
             n_jobs=-1)
         
-        scores = sl.model_selection.cross_val_score(
+        scores = cross_val_score(
             model,
             x_selected,
             self.y,
@@ -133,8 +134,10 @@ class ga_selector:
                 gene_names = [self.feature_name[i] for i in selected_genes]
 
                 iterator.set_description(
-                    f"Gen {generation+1}/{self.generations} \n Best Fitness: {fitness_values[best_index]:.4f} \n Mean Fitness: {fitness_values.mean():.4f} \n Selected Genes: {gene_names}")
-
+                    f"Gen {generation+1}/{self.generations} | Best: {fitness_values[best_index]:.3f} | Genes: {len(gene_names)}")   
+                
+                if generation == 0 or (generation + 1) % 5 == 0 or generation == self.generations - 1:
+                    tqdm.write(f"  Гены: {', '.join(gene_names)}")    
             n_elite = max(1, int(self.elitism_ratio * self.population_size))
             elite_indices = np.argsort(fitness_values)[-n_elite:]
             elite = population[elite_indices].copy()
