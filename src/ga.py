@@ -133,11 +133,14 @@ class ga_selector:
                 selected_genes = np.where(population[best_index] == 1)[0]
                 gene_names = [self.feature_name[i] for i in selected_genes]
 
+                genes_short = ', '.join(gene_names[:4])
+                if len(gene_names) > 4:
+                    genes_short += f' +{len(gene_names)-4}'
+
                 iterator.set_description(
-                    f"Gen {generation+1}/{self.generations} | Best: {fitness_values[best_index]:.3f} | Genes: {len(gene_names)}")   
-                
-                if generation == 0 or (generation + 1) % 5 == 0 or generation == self.generations - 1:
-                    tqdm.write(f"  Гены: {', '.join(gene_names)}")    
+                    f"Gen {generation+1}/{self.generations} | Best: {fitness_values[best_index]:.3f} | Genes[{len(gene_names)}]: {genes_short}"
+                )
+
             n_elite = max(1, int(self.elitism_ratio * self.population_size))
             elite_indices = np.argsort(fitness_values)[-n_elite:]
             elite = population[elite_indices].copy()
