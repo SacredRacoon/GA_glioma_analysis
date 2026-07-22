@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 import numpy as np
+import joblib
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
@@ -23,13 +24,22 @@ def plot_evolution(history,save_path = "output/fitness_history.png"):
     plt.savefig(save_path,dpi=150)
     plt.show()
 
-def evaluate_model(x,y,selected_indices,feature_names,random_state):
+def evaluate_model(x,y,selected_indices,feature_names,random_state,save_model_path="output/best_model.pkl"      ):
     x_selected = x[:, selected_indices]
     selected_names = [feature_names[i] for i in selected_indices]
 
     x_train, x_test, y_train, y_test = train_test_split(x_selected, y, test_size=0.2, random_state=42)
     model = RandomForestClassifier(n_estimators=100, random_state=random_state,max_depth=5)
     model.fit(x_train, y_train)
+
+    joblib.dump(model, save_model_path)
+    print(f"\nМодель сохранена: {save_model_path}")
+
+    import json
+    with open("output/selected_features.json", "w") as f:
+        json.dump(selected_names, f, indent=2)
+    print(f"Список генов сохранён: output/selected_features.json")
+
     y_pred = model.predict(x_test)
     y_proba = model.predict_proba(x_test)[:, 1] if len(np.unique(y)) > 1 else None
 
@@ -67,6 +77,28 @@ def evaluate_model(x,y,selected_indices,feature_names,random_state):
     plt.show()
     return model, importance_df
 
+def load_model_and_predict(patient_mutations, 
+                           model_path="output/best_model.pkl",
+                           features_path="output/selected_features.json"):
+    import json
+    model = joblib.load(model_path) 
+    
+    with open(features_path, "r") as f:
+        selected_features = json.load(f)
+    
+    print(f"Модель загружена. Ожидаемые гены: {selected_features}")
+
+    x_new = np.zeros((1, len(selected_features)))
+    for i, gene in enumerate(selected_features):
+        if gene in patient_mutations:
+            x_new[0, i] = 1 if patient_mutations[gene] == 'MUTATED' else 0
+
+    proba = model.predict_proba(x_new)[0]
+    
+    if len(proba) > 1:
+        return {f'LGG {proba[0]}, GBM {proba[1]} \nПредсказание': 'GBM' if proba[1] > 0.5 else 'LGG'}
+    return proba
+
 def prob_mutation_impact(model,patient_mutations,feature_names):
     x_new = np.zeros((1, len(feature_names)))
     for i, gene in enumerate(feature_names):
@@ -75,5 +107,5 @@ def prob_mutation_impact(model,patient_mutations,feature_names):
 
     proba = model.predict_proba(x_new)[0]
     if len(proba) > 1:
-        return {f'LGG {proba[0]}, GBM {proba[1]}\nПредсказание': 'GBM' if proba[1] > 0.5 else 'LGG'}
+        return {f'LGG {proba[0]}, GBM {proba[1]} \nПредсказание': 'GBM' if proba[1] > 0.5 else 'LGG'}
     return proba
