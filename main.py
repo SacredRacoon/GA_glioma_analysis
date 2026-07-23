@@ -1,68 +1,65 @@
-import os
-import sys
-import numpy as np
 import warnings
 warnings.filterwarnings("ignore")
 
-from src.evaluate import plot_evolution
+from src.config_loader import Config
 from src.loader import load_prep
-from src.ga import ga_selector
+from src.genetic_selector import Genetic_selector
+from src.evaluate import plot_evolution, evaluate_model, prob_mutation_impact
+import numpy as np
 
-def main():
-    x, y, feature_names, df = load_prep("data/raw/TCGA_GBM_LGG_Mutations_all.csv")
-
-    ga = ga_selector(
+def main(config_path="config.yaml"):
+    print("конфиг грузится")
+    config = Config(config_path)
+    config.print_config()
+    config.create_output_dirs()
+    
+    print("грузятся данные")
+    x, y, feature_names, df = load_prep(
+        config.get_paths()['raw_data'],
+        genes=config.get_genes()
+    )
+    
+    print("запускаем га")
+    ga = Genetic_selector( 
         x=x,
         y=y,
         feature_name=feature_names,
-        population_size=100,
-        mutation_rate=0.1,
-        crossover_rate=0.8,
-        generations=50,
-        random_state=228,
-        elitism_ratio=0.1,
-        min_features=3
+        **config.get_ga_params(),
+        model_config=config.get_model_params(),
+        cv_params=config.get_cv_params()
     )
-
+    
     best_chromosome, best_fitness, best_features = ga.run(verbose=True)
-    print(f"Процесс эволюции")
-    plot_evolution(ga.history)
 
-    print(f"Обучение и оценка")
+    print("визуализация")
+    plot_evolution(ga.history, save_path=config.get_paths()['fitness_plot'])
+    
+    print("обучаем финальную модель")
     selected_indices = np.where(best_chromosome == 1)[0]
-    model,importance_df = ga.evaluate_model(x,y,selected_indices,feature_names,random_state=228)
+    model, importance_df = evaluate_model(
+        x, y, selected_indices, feature_names,
+        model_config=config.get_model_params(),
+        save_model_path=config.get_paths()['model_save'],
+        features_save_path=config.get_paths()['features_save'],
+        feature_importance_path=config.get_paths()['importance_plot'],
+        confusion_matrix_path=config.get_paths()['confusion_matrix_plot']
+    )
+    
 
-    #Предсказание новенького
-    new_patient = {
-        'IDH1': 'MUTATED',
-        'TP53': 'MUTATED',
-        'ATRX': 'NOT_MUTATED',
-        'PTEN': 'NOT_MUTATED',
-        'EGFR': 'NOT_MUTATED',
-        'CIC': 'NOT_MUTATED',
-        'MUC16': 'NOT_MUTATED',
-        'PIK3CA': 'NOT_MUTATED',
-        'NF1': 'NOT_MUTATED',
-        'PIK3R1': 'NOT_MUTATED',
-        'FUBP1': 'MUTATED',
-        'RB1': 'NOT_MUTATED',
-        'NOTCH1': 'NOT_MUTATED',
-        'BCOR': 'NOT_MUTATED',
-        'CSMD3': 'NOT_MUTATED',
-        'SMARCA4': 'NOT_MUTATED',
-        'GRIN2A': 'NOT_MUTATED',
-        'IDH2': 'NOT_MUTATED',
-        'FAT4': 'NOT_MUTATED',
-        'PDGFRA': 'NOT_MUTATED',
-        'age_years': 51,
-        'sex': 1
-    }
-
-    from src.evaluate import prob_mutation_impact
-    result = prob_mutation_impact(model,new_patient,[feature_names[i] for i in selected_indices])
-    print(f"Результаты предсказания:")
+    print(f"предсказание для тестового чувака")
+    
+    result = prob_mutation_impact(
+        model,
+        config.get_test_patient(),
+        [feature_names[i] for i in selected_indices]
+    )
+    
+    print("Результат предсказания")
     for key, value in result.items():
         print(f"  {key}: {value}")
+    
+    print(f"Результаты в {config.get_paths()['output_dir']}")
+
 
 if __name__ == "__main__":
     main()

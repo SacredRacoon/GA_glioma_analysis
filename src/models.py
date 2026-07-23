@@ -37,7 +37,7 @@ class Model:
         params = self._prepare_params(model_type, model_config)
         model = model_class(**params)
 
-        print(f"модель {model_type} параметры {params}")
+        #print(f"модель {model_type} параметры {params}")
         return model
 
     def _prepare_params(self,model_type,model_config):

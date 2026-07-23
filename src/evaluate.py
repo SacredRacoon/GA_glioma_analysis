@@ -3,9 +3,11 @@ import seaborn as sns
 import pandas as pd
 import numpy as np
 import joblib
+import json
+from pathlib import Path
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
+from .models import Model
 
 def plot_evolution(history,save_path = "output/fitness_history.png"):
     fig,ax = plt.subplots(figsize=(12,6))
@@ -24,57 +26,82 @@ def plot_evolution(history,save_path = "output/fitness_history.png"):
     plt.savefig(save_path,dpi=150)
     plt.show()
 
-def evaluate_model(x,y,selected_indices,feature_names,random_state,save_model_path="output/best_model.pkl"      ):
+def evaluate_model(x, y, selected_indices, feature_names, 
+                   model_config=None,
+                   save_model_path="output/best_model.pkl",
+                   features_save_path="output/selected_features.json",
+                   feature_importance_path="output/feature_importance.png",
+                   confusion_matrix_path="output/confusion_matrix.png"):
+
     x_selected = x[:, selected_indices]
     selected_names = [feature_names[i] for i in selected_indices]
 
-    x_train, x_test, y_train, y_test = train_test_split(x_selected, y, test_size=0.2, random_state=42)
-    model = RandomForestClassifier(n_estimators=100, random_state=random_state,max_depth=5)
+    x_train, x_test, y_train, y_test = train_test_split(
+        x_selected, y, test_size=0.2, random_state=42
+    )
+    
+    if model_config is None:
+        model_config = {
+            'type': 'random_forest',
+            'random_state': 42,
+            'random_forest': {
+                'n_estimators': 100,
+                'max_depth': 5
+            }
+        }
+    
+    models = Model()
+    model = models.create_model(model_config)
     model.fit(x_train, y_train)
 
+    Path(save_model_path).parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(model, save_model_path)
-    print(f"\nМодель сохранена: {save_model_path}")
+    print(f"Модель {save_model_path}")
 
-    import json
-    with open("output/selected_features.json", "w") as f:
+    with open(features_save_path, "w") as f:
         json.dump(selected_names, f, indent=2)
-    print(f"Список генов сохранён: output/selected_features.json")
+    print(f"Список генов {features_save_path}")
+
 
     y_pred = model.predict(x_test)
     y_proba = model.predict_proba(x_test)[:, 1] if len(np.unique(y)) > 1 else None
 
-    print(f"Результаты модели\nВыбранные признаки ({len(selected_names)}) {', '.join(selected_names)}")
-    print(f"classification_report:\n{classification_report(y_test, y_pred, target_names=['LGG', 'GBM']) if len(np.unique(y)) > 1 else ['class 0']}")
+    print(f"Выбранные признаки ({len(selected_names)}): {', '.join(selected_names)}")
+    print(classification_report(y_test, y_pred, 
+                               target_names=['LGG', 'GBM'] if len(np.unique(y)) > 1 else ['class 0']))
 
     if y_proba is not None:
         auc = roc_auc_score(y_test, y_proba)
-        print(f"roc_auc {auc:.4f}")
+        print(f"ROC AUC {auc:.4f}")
 
     importance_df = pd.DataFrame({
         'Ген': selected_names,
         'Важность': model.feature_importances_
     }).sort_values(by='Важность', ascending=False)
 
-    print(f"Важность признаков:\n{importance_df.to_string(index=False)}")
+    print(f"Важность признаков")
+    print(importance_df.to_string(index=False))
 
     fig, ax = plt.subplots(figsize=(10, 6))
     sns.barplot(x='Важность', y='Ген', data=importance_df, ax=ax)
     ax.set_title('Важность признаков модели')
     ax.set_xlabel('Важность')
     plt.tight_layout()
-    plt.savefig("output/feature_importance.png", dpi=150)
+    plt.savefig(feature_importance_path, dpi=150, bbox_inches='tight')
     plt.show()
 
     cm = confusion_matrix(y_test, y_pred)
-    fig,ax = plt.subplots(figsize=(6, 5))
-    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=['LGG', 'GBM'] if len(np.unique(y)) > 1 else ['Class 0'],
+    fig, ax = plt.subplots(figsize=(6, 5))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
+                xticklabels=['LGG', 'GBM'] if len(np.unique(y)) > 1 else ['Class 0'],
                 yticklabels=['LGG', 'GBM'] if len(np.unique(y)) > 1 else ['Class 0'])
     ax.set_xlabel('Предсказанный класс')
     ax.set_ylabel('Истинный класс')
     ax.set_title('Матрица ошибок')
     plt.tight_layout()
-    plt.savefig("output/confusion_matrix.png", dpi=150)
+    plt.savefig(confusion_matrix_path, dpi=150, bbox_inches='tight')
     plt.show()
+    
     return model, importance_df
 
 def load_model_and_predict(patient_mutations, 
@@ -86,7 +113,7 @@ def load_model_and_predict(patient_mutations,
     with open(features_path, "r") as f:
         selected_features = json.load(f)
     
-    print(f"Модель загружена. Ожидаемые гены: {selected_features}")
+    print(f"Ожидаемые гены {selected_features}")
 
     x_new = np.zeros((1, len(selected_features)))
     for i, gene in enumerate(selected_features):
