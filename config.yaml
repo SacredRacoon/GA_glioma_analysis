@@ -1,0 +1,95 @@
+
+model:
+  type: 'random_forest'
+  random_state: 228
+  n_jobs: -1
+  
+  random_forest:
+    n_estimators: 100
+    max_depth: 5
+    min_samples_split: 2
+    min_samples_leaf: 1
+    class_weight: 'balanced'
+    
+  xgboost:
+    n_estimators: 100
+    max_depth: 5
+    learning_rate: 0.1
+    subsample: 0.8
+    colsample_bytree: 0.8
+    use_label_encoder: False
+    eval_metric: 'mlogloss'
+    
+  lightgbm:
+    n_estimators: 100
+    max_depth: 5
+    learning_rate: 0.1
+    num_leaves: 31
+    subsample: 0.8
+    colsample_bytree: 0.8
+    
+  gradient_boosting:
+    n_estimators: 100
+    max_depth: 5
+    learning_rate: 0.1
+    subsample: 0.8
+    min_samples_split: 2
+
+cv:
+  folds: 5
+  scoring: 'f1_macro'
+
+paths:
+  raw_data: "data/raw/TCGA_GBM_LGG_Mutations_all.csv"
+  output_dir: "output"
+  model_save: "output/best_model.pkl"
+  features_save: "output/selected_features.json"
+  fitness_plot: "output/fitness_history.png"
+  importance_plot: "output/feature_importance.png"
+  confusion_matrix_plot: "output/confusion_matrix.png"
+
+genes:
+  - IDH1
+  - TP53
+  - ATRX
+  - PTEN
+  - EGFR
+  - CIC
+  - MUC16
+  - PIK3CA
+  - NF1
+  - PIK3R1
+  - FUBP1
+  - RB1
+  - NOTCH1
+  - BCOR
+  - CSMD3
+  - SMARCA4
+  - GRIN2A
+  - IDH2
+  - FAT4
+  - PDGFRA
+
+test_patient:
+  IDH1: 'MUTATED'
+  TP53: 'MUTATED'
+  ATRX: 'NOT_MUTATED'
+  PTEN: 'NOT_MUTATED'
+  EGFR: 'NOT_MUTATED'
+  CIC: 'NOT_MUTATED'
+  MUC16: 'NOT_MUTATED'
+  PIK3CA: 'NOT_MUTATED'
+  NF1: 'NOT_MUTATED'
+  PIK3R1: 'NOT_MUTATED'
+  FUBP1: 'MUTATED'
+  RB1: 'NOT_MUTATED'
+  NOTCH1: 'NOT_MUTATED'
+  BCOR: 'NOT_MUTATED'
+  CSMD3: 'NOT_MUTATED'
+  SMARCA4: 'NOT_MUTATED'
+  GRIN2A: 'NOT_MUTATED'
+  IDH2: 'NOT_MUTATED'
+  FAT4: 'NOT_MUTATED'
+  PDGFRA: 'NOT_MUTATED'
+  age_years: 51
+  sex: 1
