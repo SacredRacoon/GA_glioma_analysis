@@ -1,9 +1,9 @@
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier
+from .models import Model
 from sklearn.model_selection import cross_val_score
 from tqdm import tqdm
 
-class ga_selector:
+class Genetic_selector:
     def __init__(self,x,y,feature_name,
                  population_size=100,
                  mutation_rate=0.1,
@@ -11,7 +11,9 @@ class ga_selector:
                  generations=50,
                  random_state=228,
                  elitism_ratio=0.1,
-                 min_features=3):
+                 min_features=3,
+                 model_config=None,
+                 cv_params=None):
         self.x = x
         self.y = y
         self.feature_name = feature_name
@@ -25,12 +27,26 @@ class ga_selector:
         self.elitism_ratio = elitism_ratio
         self.min_features = min_features
 
+        self.model_config = model_config or {
+            'type': 'random_forest',
+            'random_state': random_state
+        }
+
+        self.models = Model()
+
+        self.cv_params = cv_params or {
+            'cv': 5,
+            'scoring': 'f1_macro'
+        }
+
         self.history ={
             "best_fitness": [],
             "mean_fitness": [],
             'best_features': []
         }
 
+    def _create_model(self):
+        return self.models.create_model(self.model_config)
     #Создаем первых особей
     #Прикол, обновил вс код и подключил гитхаб и теперь работает автозаполнение с помощью иишки
     def _initialize_population(self):
@@ -47,28 +63,22 @@ class ga_selector:
 
     #Оценка 1 особи
     """
-    Попробовать разные модели, градиентный бустинг, т.д.
-    Также попробовать разные метрики, да и поиграться с параметрами модели, типа глубины деревьев, кол-ва деревьев и т.д.
+    Сделаль подключеные разных методов
     """
     def _fitness(self, chromosome):
         selected_indices = np.where(chromosome == 1)[0]
 
         if len(selected_indices) < self.min_features:
             return 0.0
+        
         x_selected = self.x[:, selected_indices]
 
-        model = RandomForestClassifier(
-            n_estimators=100, 
-            random_state=self.random_state,
-            max_depth=5,
-            n_jobs=-1)
-        
+        model = self._create_model()
         scores = cross_val_score(
             model,
             x_selected,
             self.y,
-            cv=5,
-            scoring='f1_macro'
+            **self.cv_params
         )
         return scores.mean()
     
@@ -141,6 +151,7 @@ class ga_selector:
                     f"Gen {generation+1}/{self.generations} | Best: {fitness_values[best_index]:.3f} | Genes[{len(gene_names)}]: {genes_short}"
                 )
 
+            #Элитизм (блатные)
             n_elite = max(1, int(self.elitism_ratio * self.population_size))
             elite_indices = np.argsort(fitness_values)[-n_elite:]
             elite = population[elite_indices].copy()
