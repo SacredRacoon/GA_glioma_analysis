@@ -1,6 +1,17 @@
 
+#Параметры генетического алгоритма
+ga:
+  population_size: 150     
+  mutation_rate: 0.2       
+  crossover_rate: 0.85
+  generations: 50
+  random_state: 228
+  elitism_ratio: 0.03      
+  min_features: 3
+
+#Выбор модели
 model:
-  type: 'xgboost'
+  type: 'lightgbm'
   random_state: 228
   n_jobs: -1
   
@@ -35,10 +46,12 @@ model:
     subsample: 0.8
     min_samples_split: 2
 
+#Кросс-валидация
 cv:
   cv: 5
   scoring: 'f1_macro'
 
+#Пути
 paths:
   raw_data: "data/raw/TCGA_GBM_LGG_Mutations_all.csv"
   output_dir: "output"
@@ -48,6 +61,7 @@ paths:
   importance_plot: "output/feature_importance.png"
   confusion_matrix_plot: "output/confusion_matrix.png"
 
+#Гены (Добавить чтение генов из таблицы путем нахождения значений mutated и т.д.)
 genes:
   - IDH1
   - TP53
@@ -70,6 +84,7 @@ genes:
   - FAT4
   - PDGFRA
 
+#Тестовый пациент
 test_patient:
   IDH1: 'MUTATED'
   TP53: 'MUTATED'

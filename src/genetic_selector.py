@@ -13,7 +13,9 @@ class Genetic_selector:
                  elitism_ratio=0.1,
                  min_features=3,
                  model_config=None,
-                 cv_params=None):
+                 cv_params=None,
+                 early_stopping_rounds=15,       
+                 stagnation_threshold=0.0005):    
         self.x = x
         self.y = y
         self.feature_name = feature_name
@@ -26,6 +28,8 @@ class Genetic_selector:
         self.rng = np.random.default_rng(random_state)
         self.elitism_ratio = elitism_ratio
         self.min_features = min_features
+        self.early_stopping_rounds = early_stopping_rounds       
+        self.stagnation_threshold = stagnation_threshold         
 
         self.model_config = model_config or {
             'type': 'random_forest',
@@ -47,8 +51,7 @@ class Genetic_selector:
 
     def _create_model(self):
         return self.models.create_model(self.model_config)
-    #Создаем первых особей
-    #Прикол, обновил вс код и подключил гитхаб и теперь работает автозаполнение с помощью иишки
+        
     def _initialize_population(self):
         population = []
 
@@ -61,10 +64,6 @@ class Genetic_selector:
 
         return np.array(population)
 
-    #Оценка 1 особи
-    """
-    Сделаль подключеные разных методов
-    """
     def _fitness(self, chromosome):
         selected_indices = np.where(chromosome == 1)[0]
 
@@ -82,12 +81,10 @@ class Genetic_selector:
         )
         return scores.mean()
     
-    #Оценка популяции
     def _evaluate_population(self, population):
         fitness_value = np.array([self._fitness(chromosome) for chromosome in population])
         return fitness_value
 
-    #Отбор родителей
     def _selection(self, population, fitness_values):
         def tournament_selection():
             indices = self.rng.choice(self.population_size, size=3, replace=False)
@@ -99,7 +96,6 @@ class Genetic_selector:
 
         return parent1, parent2
 
-    #Кроссовер, чо еще сказать
     def _crossover(self, parent1, parent2):
         if self.rng.random() < self.crossover_rate:
             point = self.rng.integers(1, self.n_features - 1)
@@ -110,7 +106,6 @@ class Genetic_selector:
             return child1, child2
         return parent1.copy(), parent2.copy()
 
-    #Мутации
     def _mutation(self, chromosome):
         mutated = chromosome.copy()
 
@@ -130,14 +125,28 @@ class Genetic_selector:
     def run(self,verbose=True):
         population = self._initialize_population()
         iterator = tqdm(range(self.generations)) if verbose else range(self.generations)
+        
+        best_overall = -np.inf
+        stagnation_counter = 0
 
         for generation in iterator:
             fitness_values = self._evaluate_population(population)
 
             best_index = np.argmax(fitness_values)
-            self.history['best_fitness'].append(fitness_values[best_index])
+            current_best = fitness_values[best_index]
+            
+            self.history['best_fitness'].append(current_best)
             self.history['mean_fitness'].append(fitness_values.mean())
             self.history['best_features'].append(population[best_index].copy())
+
+            #Проверка стагнации
+            if current_best - best_overall > self.stagnation_threshold:
+                best_overall = current_best
+                stagnation_counter = 0
+                stag_text = ""
+            else:
+                stagnation_counter += 1
+                stag_text = f" [STAG {stagnation_counter}/{self.early_stopping_rounds}]"
 
             if verbose:
                 selected_genes = np.where(population[best_index] == 1)[0]
@@ -148,8 +157,13 @@ class Genetic_selector:
                     genes_short += f' +{len(gene_names)-4}'
 
                 iterator.set_description(
-                    f"Gen {generation+1}/{self.generations} | Best: {fitness_values[best_index]:.3f} | Genes[{len(gene_names)}]: {genes_short}"
+                    f"Gen {generation+1}/{self.generations} | Best: {current_best:.4f} | Genes[{len(gene_names)}]: {genes_short}{stag_text}"
                 )
+
+            if stagnation_counter >= self.early_stopping_rounds:
+                if verbose:
+                    print(f"\n⚠ Остановка! Нет улучшений {self.early_stopping_rounds} поколений")
+                break
 
             #Элитизм (блатные)
             n_elite = max(1, int(self.elitism_ratio * self.population_size))
