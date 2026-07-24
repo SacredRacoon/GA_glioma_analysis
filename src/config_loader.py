@@ -48,25 +48,29 @@ class Config:
         return output_dir
     
     def print_config(self):
-
-        print(f"\nGA params")
+        print(f"GA params")
         for key, value in self.get_ga_params().items():
             print(f"  {key}: {value}")
         
-        print(f"\nmodel params")    
-        for key, value in self.get_model_params().items():
-            print(f"  {key}: {value}")
+        model_params = self.get_model_params()
+        model_type = model_params.get('type', 'random_forest')
+        print(f"Model: {model_type}")
+        print(f"random_state: {model_params.get('random_state')}")
+        print(f"n_jobs: {model_params.get('n_jobs')}")
+        if model_type in model_params:
+            for key, value in model_params[model_type].items():
+                print(f"  {key}: {value}")
         
-        print(f"\nCV params")    
+        print(f"CV params")    
         for key, value in self.get_cv_params().items():
             print(f"  {key}: {value}")
         
-        print(f"\npaths")    
+        print(f"paths")    
         for key, value in self.get_paths().items():
             print(f"  {key}: {value}")
         
-        print(f"\ngenes {len(self.get_genes())}")
-        print(f"test mutations {len(self.get_test_patient())}")
+        print(f"genes: {len(self.get_genes())}")
+        print(f"test mutations: {len(self.get_test_patient())}")
     
     def __getitem__(self, key):
         return self.config[key]

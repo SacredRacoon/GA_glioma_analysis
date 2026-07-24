@@ -7,7 +7,6 @@ def load_prep(filepath, genes=None):
     df = pd.read_csv(filepath)
 
     print(f"Размер данных {df.shape}")
-    print(f"Данные: {df.columns.tolist()}") 
 
     if genes is None:
         genes = ['IDH1', 'TP53', 'ATRX', 'PTEN', 'EGFR', 'CIC', 'MUC16', 
@@ -21,8 +20,11 @@ def load_prep(filepath, genes=None):
             print(f"Не найдена {col}")
 
     #lgg, gbm это Степени болезни, типо насколько все запущено, глиобластома,
-    print(f"Уникальные Grade: {df['Grade'].unique()}")
-    df['target'] = (df['Grade'] == 'GBM').astype(int) 
+    df['target'] = (df['Grade'] == 'GBM').astype(int)
+    lgg_count = (df['target'] == 0).sum()
+    gbm_count = (df['target'] == 1).sum()
+    print(f"LGG={lgg_count}, GBM={gbm_count}")
+
 
     df['age_years'] = df['Age_at_diagnosis'].str.extract(r"(\d+)").astype(float)
     df['sex'] = (df['Gender'] == 'Male').astype(int)
@@ -32,8 +34,8 @@ def load_prep(filepath, genes=None):
     y = df['target'].values
 
     print(f"Матрица мутаций {x.shape}")
-    print(f"Распределение степеней {np.bincount(y)}")
-    print(f"Каждой мутации \n{df[genes].sum().sort_values(ascending=False)}")
+    top_mutations = df[genes].sum().sort_values(ascending=False).head(5)
+    print(f"Топ 5 мутаций {dict(top_mutations)}")
 
     return x,y,clean_cols,df
 if __name__ == "__main__":
