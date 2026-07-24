@@ -15,7 +15,7 @@
 
 | Источник | Описание | Размер |
 |----------|----------|--------|
-| [Glioma Grading Clinical and Mutation Features](https://www.kaggle.com/datasets/vinayjose/glioma-grading-clinical-and-mutation-features) | OHLCV цены BTC | 862 уникальных случая |
+| [Glioma Grading Clinical and Mutation Features](https://www.kaggle.com/datasets/vinayjose/glioma-grading-clinical-and-mutation-features) | patients info with genes mutations | 862 уникальных случая |
 
 
 ## ⚙️ Конфигурация
